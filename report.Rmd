@@ -7,7 +7,7 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-source("lib.R")
+source("scripts/lib.R")
 ```
 
 ## R Markdown
@@ -18,7 +18,8 @@ When you click the **Knit** button a document will be generated that includes bo
 
 
 ```{r load_patients, echo=F}
-patient_dirs <- list.files(".", pattern="patient_*")
+patient_dirs <- list.files("results/patient_data/", 
+                           pattern="patient_*", full.names = T)
 print(paste0("Processing ", length(patient_dirs), " directories with patient data."))
 
 # iterate over all patient directories (containing the extracted csv files per patient)

@@ -1,8 +1,8 @@
 #!/bin/bash
 
-for i in *.xlsx ; do
+for i in data/*.xlsx ; do
  echo "Processing $i."
- out=$(basename "${i}" .xlsx)
+ out=results/patient_data/$(basename "${i}" .xlsx)
  out=`echo ${out} | sed s/\ /_/ | sed -e 's/\(.*\)/\L\1/'`
  echo "Writing to $out."
  xlsx2csv --all "${i}" "${out}"
