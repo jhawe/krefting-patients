@@ -1,0 +1,36 @@
+---
+title: "Patient overview"
+author: "Johann Hawe"
+date: "1 Mai 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source("lib.R")
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+
+```{r load_patients, echo=F}
+patient_dirs <- list.files(".", pattern="patient_*")
+print(paste0("Processing ", length(patient_dirs), " directories with patient data."))
+
+# iterate over all patient directories (containing the extracted csv files per patient)
+patient_list <- lapply(patient_dirs, function(pd) {
+  print(paste0("Processing directory ", pd, " ."))
+  base_data <- process_basedata(paste0(pd, "/Stammdaten.csv"))  
+  euroscore_data <- process_euroscore(paste0(pd, "/EUROSCORE II.csv"))
+  
+  result <- append(base_data,euroscore_data)
+  result
+})
+
+# create final table
+tab <- do.call(rbind, patient_list)
+```
