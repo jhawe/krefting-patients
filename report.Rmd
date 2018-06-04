@@ -1,7 +1,6 @@
 ---
 title: "Patient overview"
 author: "Johann Hawe"
-date: "1 Mai 2018"
 output: html_document
 ---
 
