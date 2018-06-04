@@ -26,11 +26,17 @@ patient_list <- lapply(patient_dirs, function(pd) {
   print(paste0("Processing directory ", pd, " ."))
   base_data <- process_basedata(paste0(pd, "/Stammdaten.csv"))  
   euroscore_data <- process_euroscore(paste0(pd, "/EUROSCORE II.csv"))
-  
-  result <- append(base_data,euroscore_data)
+  mvt_criteria <- process_mvt_criteria(paste0(pd, "/Verlegungskriterien.csv"))  
+  result <- append(append(base_data,euroscore_data), mvt_criteria)
   result
 })
 
 # create final table
 tab <- do.call(rbind, patient_list)
+
+print("Dimension of result table:")
+print(dim(tab))
+
+colnames(tab) <- gsub("[\r\n]", "_", colnames(tab))
+write.table(tab, file="results/merged.tsv", col.names=T, row.names=F, sep="\t", fileEncoding = "UTF-8")
 ```

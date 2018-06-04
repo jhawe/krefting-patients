@@ -13,7 +13,8 @@ process_basedata <- function(file) {
   }
   d <-read.csv(file, header = F, 
                sep = ",", stringsAsFactors = F,
-               fileEncoding="UTF-8")
+               fileEncoding="UTF-8",
+               blank.lines.skip = F)
   
   # create list of values to be returned
   
@@ -139,7 +140,9 @@ process_euroscore <- function(file) {
   }
   
   d <-read.csv(file, header = F, 
-               sep = ",", stringsAsFactors = F)
+               sep = ",", stringsAsFactors = F,
+               fileEncoding="UTF-8",
+               blank.lines.skip = F)
   
   # ----------------------------------------------------------------------------
   # Get necessary columns and create index vectors
@@ -173,3 +176,77 @@ process_euroscore <- function(file) {
   
   return(res)
 }
+
+# ------------------------------------------------------------------------------
+#' Method to handle the "Verlegungskriterien" sheet
+#' 
+#' @param file The csv file extracted from the xlsx file holding the 
+#' 'Verlegungskriterien' data
+#' 
+#' @author Johann Hawe
+#' 
+# ------------------------------------------------------------------------------
+process_mvt_criteria <- function(file) {
+  
+  if(!file.exists(file)) {
+    warning(paste0("File ", file, " does not exist (process_mvt_criteria)."))
+    return(NULL)
+  }
+  d <-read.csv(file, header = F, 
+               sep = ",", stringsAsFactors = F,
+               fileEncoding="UTF-8",
+               blank.lines.skip = F)
+  
+  # ----------------------------------------------------------------------------
+  # Get necessary columns and create index vectors
+  # ----------------------------------------------------------------------------
+
+  # name column
+  cats <- trimws(d$V1)
+  subcats <- trimws(d$V2)
+  
+  # indicator columns
+  indic_yes <- d$V5
+  indic_no <- d$V7
+  indic_part <- d$V6
+  
+  # create indices which we need to process
+  # was created manually by looking at examples!
+  idxs <- c(9:12, 13:16, 17:17, 18:20, 
+            21:23, 24:28, 29:30, 31:35,
+            36:38)
+  headers <- c(9,13,17,18,21,24,29,31,36)
+  
+  # ----------------------------------------------------------------------------
+  # build final list
+  # ----------------------------------------------------------------------------
+  
+  res <- list()
+  
+  # get 'Entlassungstag
+  res[["Entlassungstag"]] <- d$V2[4]
+  
+  # iterate individual fields
+  # the header values (ja, teilweise, nein)
+  val_indic <- 5:7
+  val_header <- d[7, val_indic]
+  
+  for(i in idxs) {
+    h <- gsub(" ", "_", cats[headers[max(which(headers<=i))]])
+    values <- paste(val_header, d[i,val_indic], 
+                    collapse=";", 
+                    sep=":")
+    res[[paste0(h, ".", 
+                gsub(" ", "_", subcats[i]))]] <- values
+  }
+ 
+  # add special information from the end of the sheet
+  spec_header <- d[42,val_indic]
+  for(i in 43:45) {
+    res[[gsub(" ", "_", cats[i])]] <- paste(spec_header, d[i,val_indic], 
+                                            collapse=";", 
+                                            sep=":")
+  }
+  return(res)
+}
+
