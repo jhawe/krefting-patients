@@ -22,9 +22,9 @@ process_basedata <- function(file) {
   # Get necessary columns and create index vectors
   # ----------------------------------------------------------------------------
   # name, weight, dates
-  md <- d$V4
+  md <- unlist(d$V4)
   # perfusion/ischemic time/surgeon
-  md2 <- d$V2
+  md2 <- unlist(d$V2)
   
   # ----------------------------------------------------------------------------
   # Create final return list and fill with basic data
@@ -42,9 +42,16 @@ process_basedata <- function(file) {
               ischemic_time=(md2[7]),
               surgeon=md2[3])
   
+  # we prepend the key for the patient, since a single individual might have more 
+  # than 1 surgery/data file.
+  k_visits <- list(key_visit=paste(md[2], md[3], md[5], md[7], sep="-"))
+  k_patients <- list(key_patient=paste(md[2], md[3], md[5], sep="-"))
+  
+  ret <- append(append(k_visits, k_patients), ret)
+  
   # add weight, height, bmi
-  ret[["weight"]] <- md2[match("Gewicht:", d$V1)]
-  ret[["height"]] <- md2[match("Größe:", d$V1)]
+  ret[["weight"]] <- as.numeric(md2[match("Gewicht:", d$V1)])
+  ret[["height"]] <- as.numeric(md2[match("GrÃ¶ÃŸe:", d$V1)])
   ret[["BMI"]] <- round(as.numeric(md[match("BMI:", md) + 1]))
   
   # ----------------------------------------------------------------------------
@@ -121,7 +128,7 @@ process_basedata <- function(file) {
   result[["Extubation_Beschreibung"]] <- ext[["content"]]
   
   ret <- append(ret, result)
-  return(ret)
+  return(unlist(ret))
 }
 
 # ------------------------------------------------------------------------------
@@ -174,7 +181,7 @@ process_euroscore <- function(file) {
     res[[paste0(h, ".", gsub(" ", "_", names[i]))]] <- indic[i]
   }
   
-  return(res)
+  return(unlist(res))
 }
 
 # ------------------------------------------------------------------------------
@@ -247,6 +254,6 @@ process_mvt_criteria <- function(file) {
                                             collapse=";", 
                                             sep=":")
   }
-  return(res)
+  return(unlist(res))
 }
 

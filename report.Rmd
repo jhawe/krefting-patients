@@ -1,20 +1,30 @@
 ---
 title: "Patient overview"
 author: "Johann Hawe"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
 source("scripts/lib.R")
 ```
 
-## R Markdown
+## Preprocessing
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+In this markdown we merely process the patient data and generate some simple
+exploratory plots.
+From each of the excel files we have at hand, we extract the information from 
+three sheets overall: 'Stammdaten', 'Euroscore II' and 'Verlergungskriterien'.
+For each entry we create two distinct keys:
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+* **key_visit**: A unique identifier for each entry: Name-Surname-Birthday-Entryday
+* **key_patient**: A unique identifier for each patient: Name-Surname-Birthday
 
+The **key_visit** identifier is unique over all entries in the result table, whereas
+the **key_patient** identifier is only unique for patients, not however for the different 
+visits (i.e. a patient being in for surgery more than once has the same **key_patient** but a different **key_visit** for each of the stays).
 
 ```{r load_patients, echo=F}
 patient_dirs <- list.files("results/patient_data/", 
@@ -27,16 +37,46 @@ patient_list <- lapply(patient_dirs, function(pd) {
   base_data <- process_basedata(paste0(pd, "/Stammdaten.csv"))  
   euroscore_data <- process_euroscore(paste0(pd, "/EUROSCORE II.csv"))
   mvt_criteria <- process_mvt_criteria(paste0(pd, "/Verlegungskriterien.csv"))  
-  result <- append(append(base_data,euroscore_data), mvt_criteria)
+  result <- c(base_data,euroscore_data, mvt_criteria)
   result
 })
 
 # create final table
 tab <- do.call(rbind, patient_list)
 
-print("Dimension of result table:")
-print(dim(tab))
+print("First 5 columns and rows of the data:")
+print(tab[1:min(5, nrow(tab)),1:min(5, ncol(tab))])
 
 colnames(tab) <- gsub("[\r\n]", "_", colnames(tab))
 write.table(tab, file="results/merged.tsv", col.names=T, row.names=F, sep="\t", fileEncoding = "UTF-8")
+```
+
+For the final result table, we extracted a total of `r ncol(tab)` different variables from 
+the sheets of `r length(unique(tab[,"key_patient"]))` patients. Note again, that for each new visit of the same patient in
+the hospital, we have a new data entry, i.e. we have more data entries than we have number 
+of patients. Overall, we have `r nrow(tab)` unique data entries.
+
+## Exploration
+
+We do some basic exploration of the data. For now, we only create four different 
+plots, showing the distribution numbers of female/male individuals and their
+distributions of weight, height and BMI.
+
+```{r exploration, echo=F}
+plot_tab <- as.data.frame(tab)
+plot_tab[,"weight"] <- as.numeric(as.character(plot_tab[,"weight"]))
+plot_tab[,"height"] <- as.numeric(as.character(plot_tab[,"height"]))
+plot_tab[,"BMI"] <- as.numeric(as.character(plot_tab[,"BMI"]))
+
+
+ggplot(aes(x=sex, fill=sex), data=plot_tab) + geom_histogram(stat="count") + 
+  ggtitle("Number of female/male patients across all records.")
+
+ggplot(aes(x=weight, fill=sex), data=plot_tab) + geom_histogram() + facet_wrap( ~ sex)+ 
+  ggtitle("Distribution of weight across all patiens", "Stratified by sex.")
+ggplot(aes(x=height, fill=sex), data=plot_tab) + geom_histogram() + facet_wrap( ~ sex)+ 
+  ggtitle("Distribution of height across all patiens", "Stratified by sex.")
+ggplot(aes(x=BMI, fill=sex), data=plot_tab) + geom_histogram() + facet_wrap( ~ sex)+ 
+  ggtitle("Distribution of BMI across all patiens", "Stratified by sex.")
+
 ```

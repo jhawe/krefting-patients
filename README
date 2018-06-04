@@ -1,1 +1,12 @@
-TODO!
+All patient sheets have to be deposited directly under data/ as *.xlsx files.
+First, for each of the files the individual sheets are extracted and saved
+under results/patient_data/{excel_name}/{*sheet_names*}.
+Then, an RMarkdown is rendered which summarizes all data into a single table
+and creates some basic exploratory plots. The merged table is saved under
+results/merged.tsv.
+
+Below code shows how to perform the two above mentioned steps from the analysis:
+```{bash}
+./scripts/convert.sh
+R -e "rmarkdown::render('report.Rmd',output_file='report.html')"
+```
