@@ -7,7 +7,9 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
 library(ggplot2)
+library(knitr)
 source("scripts/lib.R")
 ```
 
@@ -16,7 +18,7 @@ source("scripts/lib.R")
 In this markdown we merely process the patient data and generate some simple
 exploratory plots.
 From each of the excel files we have at hand, we extract the information from 
-three sheets overall: 'Stammdaten', 'Euroscore II' and 'Verlergungskriterien'.
+three sheets overall: 'Stammdaten', 'Euroscore II' and 'Verlegungskriterien'.
 For each entry we create two distinct keys:
 
 * **key_visit**: A unique identifier for each entry: Name-Surname-Birthday-Entryday
@@ -25,6 +27,30 @@ For each entry we create two distinct keys:
 The **key_visit** identifier is unique over all entries in the result table, whereas
 the **key_patient** identifier is only unique for patients, not however for the different 
 visits (i.e. a patient being in for surgery more than once has the same **key_patient** but a different **key_visit** for each of the stays).
+
+In the next three sections we briefly describe the general strategies used to extract data and merged them into a single table.
+
+### Stammdaten
+We extract most of the data from this sheet 'as is', i.e. we directly use the values
+in the individual fields for the entries in our data matrix.
+For the more complex data, i.e. "Diagnose_Behandlung", "Anamnese", "Medikation" etc. we always 
+extract all the entries below the respective captions. Each entry was then simply concatenated to form a single string (separator used: ';'),
+and all entries were in the end merged to a single value for the respective entry / patient (separator used: '|').
+All occurrences of the used separators were replaced with "," before concatenating the entries.
+
+### Euroscore II
+Again, we just extract the score 'as is', in this case meaning that we create the names
+(e.g. Komorbiditaet.IDDM) and add as a value the entry in the respective field of the 'C' column (e.g. 'y').
+Finally, we directly extract the risk of martality score from field D47.
+
+### Verlegungskriterien
+We create as for the Euroscore II sheet the names for each of the entires, e.g. CVS.Katecholamintherapie.
+As values for each of the names we always create triple of the form "JA:;TEILWEISE:;NEIN:", and we
+write to each value of the triple the value in the respective field in the sheet, e..g "JA:;TEILWEISE:;NEIN:x".
+This was done to avoid creating a multitude of columns (i.e. CVS.Katecholamintherapie.JA, CVS.Katecholamintherapie.TEILWEISE, CVS.Katecholamintherapie.NEIN etc.) but nevertheless contains all the information present in the sheet. In addition,
+we extracted the last three rows (43-45) using the same concept but with different triples (i.e. "empfohlen:;erfolgt:;nicht erfolgt:").
+Likely, this does not make sense for the last two rows as indicated in the sheet, but is currently used for convenience and can be ignored during any further analysis.
+The above mentioned approach can easily be adjusted (e.g. to multiple columns) upon further discussion.
 
 ```{r load_patients, echo=F}
 patient_dirs <- list.files("results/patient_data/", 
@@ -56,10 +82,16 @@ the sheets of `r length(unique(tab[,"key_patient"]))` patients. Note again, that
 the hospital, we have a new data entry, i.e. we have more data entries than we have number 
 of patients. Overall, we have `r nrow(tab)` unique data entries.
 
+Below we show the list of variables we extracted from the data:
+```{r variables, echo=F}
+kable(cbind(colnames(tab)[1:50], 
+            c(colnames(tab)[51:ncol(tab)],
+              rep("", 11))))
+```
 ## Exploration
 
 We do some basic exploration of the data. For now, we only create four different 
-plots, showing the distribution numbers of female/male individuals and their
+plots, showing the overall numbers of female/male individuals and their
 distributions of weight, height and BMI.
 
 ```{r exploration, echo=F}
@@ -80,3 +112,9 @@ ggplot(aes(x=BMI, fill=sex), data=plot_tab) + geom_histogram() + facet_wrap( ~ s
   ggtitle("Distribution of BMI across all patiens", "Stratified by sex.")
 
 ```
+
+## Conclusion
+TODO
+
+## References
+TODO
