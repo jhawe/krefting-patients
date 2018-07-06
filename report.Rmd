@@ -8,9 +8,15 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
+library(XLConnect)
 library(ggplot2)
 library(knitr)
 source("scripts/lib.R")
+
+# set some options
+options("XLConnect.dateTimeFormat" = "%Y-%m-%d")
+options("java.parameters" = "-Xmx10g")
+
 ```
 
 ## Preprocessing
@@ -53,40 +59,112 @@ Likely, this does not make sense for the last two rows as indicated in the sheet
 The above mentioned approach can easily be adjusted (e.g. to multiple columns) upon further discussion.
 
 ```{r load_patients, echo=F}
-patient_dirs <- list.files("results/patient_data/", 
-                           pattern="patient_*", full.names = T)
-print(paste0("Processing ", length(patient_dirs), " directories with patient data."))
+data_dir <- "E:/data/"
+pfiles <- list.files(data_dir, 
+                           pattern="*.xlsx$", full.names = T)
+print(paste0("Processing ", length(pfiles), " files with patient data."))
 
-# iterate over all patient directories (containing the extracted csv files per patient)
-patient_list <- lapply(patient_dirs, function(pd) {
-  print(paste0("Processing directory ", pd, " ."))
-  base_data <- process_basedata(paste0(pd, "/Stammdaten.csv"))  
-  euroscore_data <- process_euroscore(paste0(pd, "/EUROSCORE II.csv"))
-  mvt_criteria <- process_mvt_criteria(paste0(pd, "/Verlegungskriterien.csv"))  
-  result <- c(base_data,euroscore_data, mvt_criteria)
+# define function wrapper for reading the excel files
+read_patient_file <- function(pf, sheet_name) {
+  return(readWorksheetFromFile(pf, 
+                               sheet_name,
+                               header = F))
+}
+
+patient_list <- lapply(pfiles, function(pf) {
+  # free java memory. this seems necessary
+  # since otherwise we get quite some memory 
+  # errors
+  XLConnect::xlcFreeMemory()
+  
+  result <- NULL
+  
+  tryCatch({
+    
+    # read the work book
+    wb <- loadWorkbook(pf)
+    
+    sheet <- "Stammdaten"
+    if(existsSheet(wb, sheet)) {
+      df <- read_patient_file(pf, sheet)
+      base_data <- process_basedata(df)
+    } else {
+      warning(paste0("Worksheet '", sheet, "' does not exist.\n"))
+    }
+    
+    sheet <- "EUROSCORE II"
+    if(existsSheet(wb, sheet)) {
+      df <- read_patient_file(pf, sheet)
+      euroscore_data <- process_euroscore(df)
+    } else {
+      warning(paste0("Worksheet '", sheet, "' does not exist.\n"))
+      euroscore_data <- c()
+    }
+    
+    sheet <- "Verlegungskriterien"
+    if(existsSheet(wb, sheet)) {
+      df <- read_patient_file(pf, sheet)
+      mvt_criteria <- process_mvt_criteria(df)
+    } else {
+      warning(paste0("Worksheet '", sheet, "' does not exist.\n"))
+      mvt_criteria <- c()
+    }
+    
+    # create result vector
+    result <- c(base_data, euroscore_data, mvt_criteria)
+    
+    }, error=function(err) {
+      print("Error, skipping patient:")
+      print(err)
+      result <- NULL
+  })
   result
 })
 
-# create final table
-tab <- do.call(rbind, patient_list)
+# ----------------------------------------------------------------------------
+# create data frame for all patients. this is a bit complicated
+# but we want to make sure that the columns match at this point
+# ----------------------------------------------------------------------------
+cols <- unique(unlist(lapply(patient_list, names)))
+df <- as.data.frame(matrix(ncol=length(cols)))
+colnames(df) <- gsub("[\r\n]", "_", cols)
 
+# ----------------------------------------------------------------------------
+# populate the list
+# ----------------------------------------------------------------------------
+for(i in 1:length(patient_list)) {
+  if(i != 1) {
+    df <- rbind(df, rep(NA, ncol(df)))
+  }
+  p <- patient_list[[i]]
+  for(n in names(p)) {
+    df[i,n] <- gsub("[\r\n]", "_", p[n])
+  }
+}
+
+# ----------------------------------------------------------------------------
+# remove uncommun symbols nad NAs for sex
+# ----------------------------------------------------------------------------
+df <- df[!(df[,"sex"] != "m" & df[,"sex"] != "w"),]
+df <- df[!is.na(df[,"sex"]),]
+
+# ----------------------------------------------------------------------------
+# all done
+# ----------------------------------------------------------------------------
 print("First 5 columns and rows of the data:")
-print(tab[1:min(5, nrow(tab)),1:min(5, ncol(tab))])
+print(df[1:min(5, nrow(df)),1:min(5, ncol(df))])
 
-colnames(tab) <- gsub("[\r\n]", "_", colnames(tab))
-write.table(tab, file="results/merged.tsv", col.names=T, row.names=F, sep="\t", fileEncoding = "UTF-8")
+write.table(df, file="E:\\merged.tsv", col.names=T, row.names=F, sep="\t", fileEncoding = "UTF-8")
 ```
 
-For the final result table, we extracted a total of `r ncol(tab)` different variables from 
-the sheets of `r length(unique(tab[,"key_patient"]))` patients. Note again, that for each new visit of the same patient in
+For the final result table, we extracted a total of `r ncol(df)` different variables from 
+the sheets of `r length(unique(df[,"key_patient"]))` patients. Note again, that for each new visit of the same patient in
 the hospital, we have a new data entry, i.e. we have more data entries than we have number 
-of patients. Overall, we have `r nrow(tab)` unique data entries.
+of patients. Overall, we have `r nrow(df)` unique data entries.
 
 Below we show the list of variables we extracted from the data:
 ```{r variables, echo=F}
-kable(cbind(colnames(tab)[1:50], 
-            c(colnames(tab)[51:ncol(tab)],
-              rep("", 11))))
+print(colnames(df))
 ```
 ## Exploration
 
@@ -95,7 +173,7 @@ plots, showing the overall numbers of female/male individuals and their
 distributions of weight, height and BMI.
 
 ```{r exploration, echo=F}
-plot_tab <- as.data.frame(tab)
+plot_tab <- as.data.frame(df)
 plot_tab[,"weight"] <- as.numeric(as.character(plot_tab[,"weight"]))
 plot_tab[,"height"] <- as.numeric(as.character(plot_tab[,"height"]))
 plot_tab[,"BMI"] <- as.numeric(as.character(plot_tab[,"BMI"]))
@@ -118,3 +196,8 @@ TODO
 
 ## References
 TODO
+
+## Sessioninfo
+```{r echo=F}
+sessionInfo()
+```
